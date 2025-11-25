@@ -1,34 +1,27 @@
-# 📦 ІНСТРУКЦІЇ ДЛЯ ЗАПУШУВАННЯ НА GITHUB
+# 📦 ВСТАНОВЛЕННЯ
 
-## 1-3️⃣ РОЗПАКУЙТЕ, ІНІЦІАЛІЗУЙТЕ GIT, ДОДАЙТЕ REMOTE
+## 1. Розпакуйте архів
 
 ```bash
 cd vinnytsia-outage-parser
+```
+
+## 2. Ініціалізуйте git
+
+```bash
 git init
 git config user.name "Your Name"
 git config user.email "your.email@example.com"
 git remote add origin https://github.com/olnet93/vinnytsia-outage-parser.git
 ```
 
-## 4️⃣ ДОДАЙТЕ ВСІ ФАЙЛИ
+## 3. Додайте файли
 
 ```bash
 git add .
-```
-
-## 5️⃣ СТВОРІТЬ КОМІТ
-
-```bash
 git commit -m "Initial commit: add vinnytsia outage parser"
-```
-
-## 6-7️⃣ ЗАПУШЬТЕ
-
-```bash
 git branch -M main
 git push -u origin main
 ```
 
-## ✅ ГОТОВО!
-
-Проект опубліковано. GitHub Actions запуститься автоматично!
+✅ Готово!
