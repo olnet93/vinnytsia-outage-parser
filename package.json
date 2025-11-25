@@ -1,0 +1,28 @@
+{
+  "name": "vinnytsia-outage-parser",
+  "version": "1.0.0",
+  "description": "Автоматичний парсер графіків відключення світла Вінниці з voe.com.ua",
+  "main": "scripts/parser.js",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/parser.js vinnytsia",
+    "parse": "node scripts/parser.js vinnytsia",
+    "dev": "node --watch scripts/parser.js vinnytsia"
+  },
+  "keywords": [
+    "vinnytsia",
+    "ukraine",
+    "outage",
+    "blackout",
+    "schedule",
+    "parser",
+    "playwright"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "playwright": "^1.40.0",
+    "cheerio": "^1.0.0-rc.12",
+    "dotenv": "^16.3.1"
+  }
+}
