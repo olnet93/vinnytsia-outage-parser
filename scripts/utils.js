@@ -3,13 +3,13 @@ import path from 'path';
 
 export function mapStateValue(state) {
   const stateMap = {
-    'yes': 'yes',              // Світло весь час
-    'no': 'no',                // Немає світла
-    'first': 'first',          // Вимкнення перші 30 хв
-    'second': 'second',        // Вимкнення другі 30 хв
-    'maybe': 'maybe',          // Можливе вимкнення
-    'maybe_first': 'maybe',    // Можливе вимкнення перші 30 хв
-    'maybe_second': 'maybe'    // Можливе вимкнення другі 30 хв
+    'yes': 'yes',
+    'no': 'no',
+    'first': 'first',
+    'second': 'second',
+    'maybe': 'maybe',
+    'maybe_first': 'maybe',
+    'maybe_second': 'maybe'
   };
 
   return stateMap[state] || state;

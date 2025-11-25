@@ -2,13 +2,8 @@ name: Parse Disconnection Data
 
 on:
   schedule:
-    # Запускати кожні 15 хвилин
     - cron: '*/15 * * * *'
-
-  # Також дозволити запуск вручну
   workflow_dispatch:
-
-  # Запускати при кожному push до main
   push:
     branches:
       - main
@@ -18,26 +13,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
 
-      - name: Install Playwright
-        run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium
 
-      - name: Run parser
-        run: npm start
+      - run: npm start
 
-      - name: Commit and push changes
-        run: |
+      - run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add data/

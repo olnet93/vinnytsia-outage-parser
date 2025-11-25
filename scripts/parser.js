@@ -5,7 +5,6 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { REGIONS } from './regions.js';
 import { 
-  mapStateValue, 
   getTimestampForDate, 
   ensureDataDir,
   getCurrentAndTomorrowDates 
