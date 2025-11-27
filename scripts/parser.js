@@ -24,21 +24,21 @@ async function parseDisconnectionData(region) {
       args: ['--disable-gpu', '--no-sandbox', '--disable-blink-features=AutomationControlled']
     });
     
-    const context = await browser.createBrowserContext({
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      extraHTTPHeaders: {
-        'Accept-Language': 'uk-UA,uk;q=0.9',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Referer': 'https://www.voe.com.ua/',
-        'Origin': 'https://www.voe.com.ua',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'same-origin',
-        'Upgrade-Insecure-Requests': '1'
-      }
+    page = await browser.newPage({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     });
     
-    page = await context.newPage();
+    // Встановити заголовки для обходу Cloudflare
+    await page.setExtraHTTPHeaders({
+      'Accept-Language': 'uk-UA,uk;q=0.9',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      'Referer': 'https://www.voe.com.ua/',
+      'Origin': 'https://www.voe.com.ua',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'same-origin',
+      'Upgrade-Insecure-Requests': '1'
+    });
     
     // Встановити User-Agent щоб виглядати як звичайний браузер
     await page.addInitScript(() => {
@@ -161,7 +161,6 @@ async function parseDisconnectionData(region) {
     console.log(`   📁 ${filePath}`);
     console.log(`   📅 Оновлено: ${output.fact.updateFact}\n`);
     
-    await context.close();
     return true;
     
   } catch (error) {
