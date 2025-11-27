@@ -17,17 +17,17 @@ async function parseDisconnectionData(region) {
   console.log(`🔍 Починаю парсинг: ${region.name}`);
   
   let browser;
+  let page;
   try {
     browser = await playwright.chromium.launch({
       headless: true,
       args: ['--disable-gpu', '--no-sandbox']
     });
     
-    const context = await browser.createBrowserContext();
-    const page = await context.newPage();
+    page = await browser.newPage();
     
     // Встановити User-Agent щоб виглядати як звичайний браузер
-    await context.addInitScript(() => {
+    await page.addInitScript(() => {
       Object.defineProperty(navigator, 'webdriver', {
         get: () => false,
       });
@@ -63,8 +63,7 @@ async function parseDisconnectionData(region) {
         return Array.from(document.querySelectorAll('table')).map((t, i) => ({
           index: i,
           classes: t.className,
-          rows: t.querySelectorAll('tr').length,
-          html: t.outerHTML.substring(0, 200)
+          rows: t.querySelectorAll('tr').length
         }));
       });
       
@@ -72,15 +71,6 @@ async function parseDisconnectionData(region) {
       allTables.forEach(t => {
         console.log(`    [${t.index}] класи: ${t.classes}, рядків: ${t.rows}`);
       });
-      
-      // Спробуємо з іншим селектором
-      const tableByRole = await page.evaluate(() => {
-        return document.querySelector('table[role="grid"]') !== null;
-      });
-      
-      if (tableByRole) {
-        console.log(`  → Знайдена таблиця з role="grid"`);
-      }
     }
     
     if (region.selector) {
@@ -110,16 +100,6 @@ async function parseDisconnectionData(region) {
       console.log(`  ✓ Таблиця знайдена`);
     } catch (e) {
       console.log(`  ❌ Таблиця не знайдена за 15 сек`);
-      
-      // Сохраняємо скріншот для отладки
-      const screenshotPath = path.join(__dirname, '..', 'debug-screenshot.png');
-      try {
-        await page.screenshot({ path: screenshotPath });
-        console.log(`  → Скріншот збережено: ${screenshotPath}`);
-      } catch (e) {
-        console.log(`  ⚠️  Помилка при збереженні скріншоту: ${e.message}`);
-      }
-      
       throw new Error('Таблиця не знайдена');
     }
     
@@ -161,7 +141,6 @@ async function parseDisconnectionData(region) {
     console.log(`   📁 ${filePath}`);
     console.log(`   📅 Оновлено: ${output.fact.updateFact}\n`);
     
-    await context.close();
     return true;
     
   } catch (error) {
@@ -169,6 +148,7 @@ async function parseDisconnectionData(region) {
     console.error(`   ${error.stack}`);
     return false;
   } finally {
+    if (page) await page.close();
     if (browser) await browser.close();
   }
 }
