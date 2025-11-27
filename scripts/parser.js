@@ -20,29 +20,71 @@ async function parseDisconnectionData(region) {
   try {
     browser = await playwright.chromium.launch({
       headless: true,
-      args: ['--disable-gpu']
+      args: ['--disable-gpu', '--no-sandbox']
     });
 
     const context = await browser.createBrowserContext();
     const page = await context.newPage();
 
-    page.setDefaultTimeout(30000);
-    page.setDefaultNavigationTimeout(30000);
+    // Встановити User-Agent щоб виглядати як звичайний браузер
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', {
+        get: () => false,
+      });
+    });
+
+    page.setDefaultTimeout(60000);
+    page.setDefaultNavigationTimeout(60000);
 
     console.log(`  → Завантажую сторінку...`);
     await page.goto('https://www.voe.com.ua/disconnection/detailed', {
       waitUntil: 'networkidle'
     });
 
+    // Чекаємо Cloudflare Challenge (якщо є)
+    console.log(`  → Перевіряю Cloudflare Challenge...`);
+    try {
+      // Чекаємо до 30 секунд на завантаження основного контенту
+      // Cloudflare Challenge звичайно розв'язується автоматично
+      await page.waitForSelector('table.disconnection-detailed-table', {
+        timeout: 30000
+      }).catch(() => {
+        console.log(`  ⚠️  Таблиця не знайдена одразу, чекаю Cloudflare...`);
+      });
+    } catch (e) {
+      // Спробуємо ще раз
+      console.log(`  → Перезавантажую сторінку...`);
+      await page.reload({ waitUntil: 'networkidle' });
+    }
+
+    // Перевіримо чи є Challenge
+    const isChallenged = await page.evaluate(() => {
+      return document.body.textContent.includes('Підтвердьте') || 
+             document.body.textContent.includes('Проверьте') ||
+             document.body.textContent.includes('Just a moment');
+    });
+
+    if (isChallenged) {
+      console.log(`  → Cloudflare Challenge виявлено, чекаю розв'язання...`);
+      // Даємо більше часу на автоматичне розв'язання
+      await page.waitForTimeout(5000);
+      // Перезавантажуємо
+      await page.reload({ waitUntil: 'networkidle' });
+    }
+
     if (region.selector) {
       console.log(`  → Вибираю регіон...`);
-      await page.click(region.selector);
-      await page.waitForTimeout(2000);
+      try {
+        await page.click(region.selector);
+        await page.waitForTimeout(2000);
+      } catch (e) {
+        console.log(`  ⚠️  Не вдалося вибрати регіон селектором: ${region.selector}`);
+      }
     }
 
     console.log(`  → Очікую таблицю...`);
     await page.waitForSelector('table.disconnection-detailed-table', {
-      timeout: 10000
+      timeout: 30000
     });
 
     const html = await page.content();
