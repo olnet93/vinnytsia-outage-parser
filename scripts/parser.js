@@ -38,22 +38,27 @@ async function parseDisconnectionData(region) {
     
     console.log(`  → Завантажую сторінку...`);
     const response = await page.goto('https://www.voe.com.ua/disconnection/detailed', {
-      waitUntil: 'networkidle'
+      waitUntil: 'domcontentloaded'
     });
     
     console.log(`  → Статус: ${response.status()}`);
     
-    // Перевіримо вміст сторінки
+    // Чекаємо додатковий час для JS завантаження
+    await page.waitForTimeout(3000);
+    
+    // Перевіримо вміст сторінки на Cloudflare
     const pageContent = await page.content();
-    if (pageContent.includes('Cloudflare')) {
+    if (pageContent.includes('Cloudflare') || pageContent.includes('Just a moment')) {
       console.log(`  ⚠️  Cloudflare Challenge виявлено, чекаю...`);
-      await page.waitForTimeout(3000);
+      await page.waitForTimeout(5000);
     }
     
     // Перевіримо селектор таблиці
     const tableExists = await page.evaluate(() => {
       return document.querySelector('table.disconnection-detailed-table') !== null;
     });
+    
+    console.log(`  → Таблиця існує: ${tableExists}`);
     
     if (!tableExists) {
       console.log(`  ⚠️  Таблиця не знайдена! Переглядаю вміст...`);
@@ -71,6 +76,8 @@ async function parseDisconnectionData(region) {
       allTables.forEach(t => {
         console.log(`    [${t.index}] класи: ${t.classes}, рядків: ${t.rows}`);
       });
+      
+      throw new Error('Таблиця не знайдена на сторінці');
     }
     
     if (region.selector) {
@@ -90,17 +97,6 @@ async function parseDisconnectionData(region) {
       } catch (e) {
         console.log(`  ⚠️  Помилка при виборі регіону: ${e.message}`);
       }
-    }
-    
-    console.log(`  → Очікую таблицю...`);
-    try {
-      await page.waitForSelector('table.disconnection-detailed-table', {
-        timeout: 15000
-      });
-      console.log(`  ✓ Таблиця знайдена`);
-    } catch (e) {
-      console.log(`  ❌ Таблиця не знайдена за 15 сек`);
-      throw new Error('Таблиця не знайдена');
     }
     
     const html = await page.content();
@@ -145,7 +141,7 @@ async function parseDisconnectionData(region) {
     
   } catch (error) {
     console.error(`❌ Помилка при парсингу ${region.name}:`, error.message);
-    console.error(`   ${error.stack}`);
+    console.error(`   Stack:`, error.stack.split('\n').slice(0, 3).join('\n'));
     return false;
   } finally {
     if (page) await page.close();
