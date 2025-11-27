@@ -21,15 +21,36 @@ async function parseDisconnectionData(region) {
   try {
     browser = await playwright.chromium.launch({
       headless: true,
-      args: ['--disable-gpu', '--no-sandbox']
+      args: ['--disable-gpu', '--no-sandbox', '--disable-blink-features=AutomationControlled']
     });
     
     page = await browser.newPage();
+    
+    // Встановити реальний User-Agent
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    
+    // Встановити заголовки для обходу Cloudflare
+    await page.setExtraHTTPHeaders({
+      'Accept-Language': 'uk-UA,uk;q=0.9',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      'Referer': 'https://www.voe.com.ua/',
+      'Origin': 'https://www.voe.com.ua',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'same-origin',
+      'Upgrade-Insecure-Requests': '1'
+    });
     
     // Встановити User-Agent щоб виглядати як звичайний браузер
     await page.addInitScript(() => {
       Object.defineProperty(navigator, 'webdriver', {
         get: () => false,
+      });
+      Object.defineProperty(navigator, 'plugins', {
+        get: () => [1, 2, 3, 4, 5],
+      });
+      Object.defineProperty(navigator, 'languages', {
+        get: () => ['uk-UA', 'uk'],
       });
     });
     
@@ -43,15 +64,13 @@ async function parseDisconnectionData(region) {
     
     console.log(`  → Статус: ${response.status()}`);
     
-    // Чекаємо додатковий час для JS завантаження
-    await page.waitForTimeout(3000);
-    
-    // Перевіримо вміст сторінки на Cloudflare
-    const pageContent = await page.content();
-    if (pageContent.includes('Cloudflare') || pageContent.includes('Just a moment')) {
-      console.log(`  ⚠️  Cloudflare Challenge виявлено, чекаю...`);
+    if (response.status() === 403) {
+      console.log(`  ⚠️  Статус 403! Чекаю Cloudflare...`);
       await page.waitForTimeout(5000);
     }
+    
+    // Чекаємо додатковий час для JS завантаження
+    await page.waitForTimeout(3000);
     
     // Перевіримо селектор таблиці
     const tableExists = await page.evaluate(() => {
@@ -76,6 +95,12 @@ async function parseDisconnectionData(region) {
       allTables.forEach(t => {
         console.log(`    [${t.index}] класи: ${t.classes}, рядків: ${t.rows}`);
       });
+      
+      // Перевіримо чи є таблиця на сторінці взагалі
+      const pageTitle = await page.title();
+      const bodyText = await page.evaluate(() => document.body.innerText);
+      console.log(`  → Заголовок сторінки: ${pageTitle}`);
+      console.log(`  → Перші 200 символів: ${bodyText.substring(0, 200)}`);
       
       throw new Error('Таблиця не знайдена на сторінці');
     }
