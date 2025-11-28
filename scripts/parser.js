@@ -1,4 +1,4 @@
-import playwright from 'playwright';
+import axios from 'axios';
 import * as cheerio from 'cheerio';
 import fs from 'fs';
 import path from 'path';
@@ -16,115 +16,65 @@ const __dirname = path.dirname(__filename);
 async function parseDisconnectionData(region) {
   console.log(`🔍 Починаю парсинг: ${region.name}`);
   
-  let browser;
-  let page;
   try {
-    browser = await playwright.chromium.launch({
-      headless: true,
-      args: ['--disable-gpu', '--no-sandbox', '--disable-blink-features=AutomationControlled']
+    console.log(`  → Завантажую сторінку через axios...`);
+    
+    // Встановити axios для обходу Cloudflare з реальними заголовками
+    const response = await axios.get('https://www.voe.com.ua/disconnection/detailed', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'uk-UA,uk;q=0.9,ru;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Cache-Control': 'max-age=0',
+        'Referer': 'https://www.voe.com.ua/',
+      },
+      timeout: 30000,
+      maxRedirects: 5,
     });
     
-    page = await browser.newPage({
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    });
+    console.log(`  → Статус: ${response.status}`);
     
-    // Встановити заголовки для обходу Cloudflare
-    await page.setExtraHTTPHeaders({
-      'Accept-Language': 'uk-UA,uk;q=0.9',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-      'Referer': 'https://www.voe.com.ua/',
-      'Origin': 'https://www.voe.com.ua',
-      'Sec-Fetch-Dest': 'document',
-      'Sec-Fetch-Mode': 'navigate',
-      'Sec-Fetch-Site': 'same-origin',
-      'Upgrade-Insecure-Requests': '1'
-    });
-    
-    // Встановити User-Agent щоб виглядати як звичайний браузер
-    await page.addInitScript(() => {
-      Object.defineProperty(navigator, 'webdriver', {
-        get: () => false,
-      });
-      Object.defineProperty(navigator, 'plugins', {
-        get: () => [1, 2, 3, 4, 5],
-      });
-      Object.defineProperty(navigator, 'languages', {
-        get: () => ['uk-UA', 'uk'],
-      });
-    });
-    
-    page.setDefaultTimeout(60000);
-    page.setDefaultNavigationTimeout(60000);
-    
-    console.log(`  → Завантажую сторінку...`);
-    const response = await page.goto('https://www.voe.com.ua/disconnection/detailed', {
-      waitUntil: 'domcontentloaded'
-    });
-    
-    console.log(`  → Статус: ${response.status()}`);
-    
-    if (response.status() === 403) {
-      console.log(`  ⚠️  Статус 403! Чекаю Cloudflare...`);
-      await page.waitForTimeout(5000);
+    if (response.status !== 200) {
+      throw new Error(`Помилка завантаження: статус ${response.status}`);
     }
     
-    // Чекаємо додатковий час для JS завантаження
-    await page.waitForTimeout(3000);
+    const html = response.data;
+    const $ = cheerio.load(html);
     
     // Перевіримо селектор таблиці
-    const tableExists = await page.evaluate(() => {
-      return document.querySelector('table.disconnection-detailed-table') !== null;
-    });
-    
+    const tableExists = $('table.disconnection-detailed-table').length > 0;
     console.log(`  → Таблиця існує: ${tableExists}`);
     
     if (!tableExists) {
       console.log(`  ⚠️  Таблиця не знайдена! Переглядаю вміст...`);
       
       // Спробуємо знайти альтернативні селектори
-      const allTables = await page.evaluate(() => {
-        return Array.from(document.querySelectorAll('table')).map((t, i) => ({
-          index: i,
-          classes: t.className,
-          rows: t.querySelectorAll('tr').length
-        }));
-      });
+      const allTables = $('table').map((i, t) => ({
+        index: i,
+        classes: $(t).attr('class'),
+        rows: $(t).find('tr').length
+      })).get();
       
       console.log(`  → Знайдено таблиць: ${allTables.length}`);
       allTables.forEach(t => {
         console.log(`    [${t.index}] класи: ${t.classes}, рядків: ${t.rows}`);
       });
       
-      // Перевіримо чи є таблиця на сторінці взагалі
-      const pageTitle = await page.title();
-      const bodyText = await page.evaluate(() => document.body.innerText);
+      // Перевіримо заголовок сторінки
+      const pageTitle = $('title').text();
+      const bodyText = $('body').text().substring(0, 200);
       console.log(`  → Заголовок сторінки: ${pageTitle}`);
-      console.log(`  → Перші 200 символів: ${bodyText.substring(0, 200)}`);
+      console.log(`  → Перші 200 символів: ${bodyText}`);
       
       throw new Error('Таблиця не знайдена на сторінці');
     }
-    
-    if (region.selector) {
-      console.log(`  → Вибираю регіон: ${region.selector}`);
-      try {
-        const regionExists = await page.evaluate((sel) => {
-          return document.querySelector(sel) !== null;
-        }, region.selector);
-        
-        if (regionExists) {
-          await page.click(region.selector);
-          await page.waitForTimeout(2000);
-          console.log(`  ✓ Регіон вибраний`);
-        } else {
-          console.log(`  ⚠️  Селектор регіону не знайдений: ${region.selector}`);
-        }
-      } catch (e) {
-        console.log(`  ⚠️  Помилка при виборі регіону: ${e.message}`);
-      }
-    }
-    
-    const html = await page.content();
-    const $ = cheerio.load(html);
     
     const data = parseTable($);
     
@@ -165,11 +115,7 @@ async function parseDisconnectionData(region) {
     
   } catch (error) {
     console.error(`❌ Помилка при парсингу ${region.name}:`, error.message);
-    console.error(`   Stack:`, error.stack.split('\n').slice(0, 3).join('\n'));
     return false;
-  } finally {
-    if (page) await page.close();
-    if (browser) await browser.close();
   }
 }
 
@@ -253,11 +199,8 @@ function determineState($cell, $) {
 }
 
 function generateHash(str) {
-  const crypto = require('crypto');
-  return crypto
-    .createHash('sha256')
-    .update(str)
-    .digest('hex');
+  const crypto = await import('crypto');
+  return crypto.createHash('sha256').update(str).digest('hex');
 }
 
 async function main() {
